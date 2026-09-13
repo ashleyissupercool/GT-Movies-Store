@@ -16,13 +16,13 @@ def index(request):
     return render(request, 'movies/index.html', {'template_data': template_data})
 def show(request, id):
     movie = Movie.objects.get(id=id)
-    reviews = Review.objects.filter(movie=movie)
+    # only shows the movies that aren't flagged as 'is_inappropriate'
+    reviews = Review.objects.filter(movie=movie, is_inappropriate=False)
     template_data = {}
     template_data['title'] = movie.name
     template_data['movie'] = movie
     template_data['reviews'] = reviews
-    return render(request, 'movies/show.html',
-        {'template_data': template_data})
+    return render(request, 'movies/show.html', {'template_data': template_data})
 @login_required
 def create_review(request, id):
     if request.method == 'POST' and request.POST['comment'] != '':
@@ -57,7 +57,18 @@ def edit_review(request, id, review_id):
 
 @login_required
 def delete_review(request, id, review_id):
-    review = get_object_or_404(Review, id=review_id,
-        user=request.user)
+    review = get_object_or_404(Review, id=review_id, user=request.user)
     review.delete()
+    return redirect('movies.show', id=id)
+
+# flags innapropriate comments and gets reported reasoning
+@login_required
+def report_review(request, id, review_id):
+    if request.method == 'POST':
+        review = get_object_or_404(Review, id=review_id, movie_id=id)
+        review.is_inappropriate = True
+        reason = request.POST.get('reason')
+        if reason:
+            review.report_reason = reason
+        review.save()
     return redirect('movies.show', id=id)
